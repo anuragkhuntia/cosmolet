@@ -71,15 +71,20 @@ func (c *BGPServiceController) populateNodeIPs() error {
 
 	c.excludeMap = make(map[string]struct{})
 	for _, node := range nodes.Items {
+		if node.Name != c.nodeName {
+			continue
+		}
 		for _, addr := range node.Status.Addresses {
 			if addr.Type == v1.NodeInternalIP || addr.Type == v1.NodeExternalIP {
 				c.excludeMap[addr.Address] = struct{}{}
 			}
 		}
+		break
 	}
-
+	
 	c.excludeMap["127.0.0.1"] = struct{}{}
 	c.excludeMap["::1"] = struct{}{}
+	log.Printf("exlude IP list: %v", c.excludeMap)
 	return nil
 }
 
