@@ -81,10 +81,17 @@ func (c *BGPServiceController) populateNodeIPs() error {
 		}
 		break
 	}
-	
+
 	c.excludeMap["127.0.0.1"] = struct{}{}
 	c.excludeMap["::1"] = struct{}{}
-	log.Printf("exlude IP list: %v", c.excludeMap)
+
+	// Log the protected IPs
+	var protected []string
+	for ip := range c.excludeMap {
+		protected = append(protected, ip)
+	}
+	log.Printf("Protected loopback IPs (won’t be deleted): %v", protected)
+
 	return nil
 }
 
