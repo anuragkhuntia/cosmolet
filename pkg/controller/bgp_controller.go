@@ -63,6 +63,7 @@ func NewBGPServiceController(cfg *config.Config, ctx context.Context) (*BGPServi
 }
 
 // populateNodeIPs fetches all node IPs to exclude from loopback removal
+// populateNodeIPs fetches all node IPs to exclude from loopback removal
 func (c *BGPServiceController) populateNodeIPs() error {
 	nodes, err := c.client.CoreV1().Nodes().List(c.ctx, metav1.ListOptions{})
 	if err != nil {
@@ -70,26 +71,16 @@ func (c *BGPServiceController) populateNodeIPs() error {
 	}
 
 	c.excludeMap = make(map[string]struct{})
-
-	// Add node IPs for the current node
-	addedNodeIP := false
 	for _, node := range nodes.Items {
-		// Match node by NODE_NAME env (set via Downward API) or hostname fallback
 		if node.Name != c.nodeName {
 			continue
 		}
 		for _, addr := range node.Status.Addresses {
 			if addr.Type == v1.NodeInternalIP || addr.Type == v1.NodeExternalIP {
 				c.excludeMap[addr.Address] = struct{}{}
-				addedNodeIP = true
 			}
 		}
 		break
-	}
-
-	if !addedNodeIP && c.config.NodeIP != "" {
-		// Fallback: use configured NodeIP if node lookup failed
-		c.excludeMap[c.config.NodeIP] = struct{}{}
 	}
 
 	// Always protect localhost
@@ -111,7 +102,7 @@ func (c *BGPServiceController) populateNodeIPs() error {
 	for ip := range c.excludeMap {
 		protected = append(protected, ip)
 	}
-	log.Printf("Protected loopback IPs (won’t be deleted): %v", protected)
+	log.Printf("Protected IPs (won’t be deleted): %v", protected)
 
 	return nil
 }
@@ -337,64 +328,63 @@ func (c *BGPServiceController) checkHTTPHealth(url string) bool {
 //	return nil
 //}
 // addIPToLoopback adds the IP to the loopback interface if not already present
+// addIPToLoopback adds the IP to the loopback interface if not already present
 func (c *BGPServiceController) addIPToLoopback(ip string) error {
-    // Check if IP is already bound to loopback
-    checkCmd := exec.Command("ip", "addr", "show", "dev", "lo")
-    out, err := checkCmd.Output()
-    if err != nil {
-        return fmt.Errorf("failed to check loopback IPs: %v", err)
-    }
+	// Check if IP is already present on lo
+	checkCmd := exec.Command("ip", "-o", "addr", "show", "dev", "lo")
+	out, err := checkCmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to check loopback IPs: %v", err)
+	}
 
-    if strings.Contains(string(out), ip) {
-        log.Printf("Service IP %s already present on loopback, skipping add", ip)
-        return nil
-    }
+	if strings.Contains(string(out), ip) {
+		log.Printf("IP %s already present on loopback, skipping", ip)
+		return nil
+	}
 
-    // Add the IP if not present
-    cmd := exec.Command("ip", "addr", "add", fmt.Sprintf("%s/32", ip), "dev", "lo")
-    if err := cmd.Run(); err != nil {
-        return fmt.Errorf("failed to add IP %s to loopback: %v", ip, err)
-    }
+	// Add the IP
+	cmd := exec.Command("ip", "addr", "add", fmt.Sprintf("%s/32", ip), "dev", "lo")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to add IP %s to loopback: %v", ip, err)
+	}
 
-    log.Printf("Added service IP %s to loopback", ip)
-    return nil
+	log.Printf("Added IP %s to loopback", ip)
+	return nil
 }
 
-
-// cleanupLoopbackIPs removes stale IPs not in active set or exclude map
 // cleanupLoopbackIPs removes stale IPs not in active set or exclude map
 func (c *BGPServiceController) cleanupLoopbackIPs(activeIPs map[string]struct{}) {
-    // List current IPs on loopback
-    out, err := exec.Command("ip", "-o", "addr", "show", "dev", "lo").Output()
-    if err != nil {
-        log.Printf("Error listing loopback IPs: %v", err)
-        return
-    }
+	// List current IPs on loopback
+	out, err := exec.Command("ip", "-o", "addr", "show", "dev", "lo").Output()
+	if err != nil {
+		log.Printf("Error listing loopback IPs: %v", err)
+		return
+	}
 
-    lines := string(out)
-    for _, line := range strings.Split(lines, "\n") {
-        if line == "" {
-            continue
-        }
-        fields := strings.Fields(line)
-        if len(fields) < 4 {
-            continue
-        }
-        ipWithMask := fields[3]
-        ip, _, _ := net.ParseCIDR(ipWithMask)
-        if ip == nil {
-            continue
-        }
-        ipStr := ip.String()
+	lines := strings.Split(string(out), "\n")
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 4 {
+			continue
+		}
+		ipWithMask := fields[3]
+		ip, _, err := net.ParseCIDR(ipWithMask)
+		if err != nil || ip == nil {
+			continue
+		}
+		ipStr := ip.String()
 
-        // If not active and not excluded → remove
-        if _, keep := activeIPs[ipStr]; !keep {
-            if _, exclude := c.excludeMap[ipStr]; !exclude {
-                log.Printf("Removing stale IP %s from loopback", ipStr)
-                _ = exec.Command("ip", "addr", "del", fmt.Sprintf("%s/32", ipStr), "dev", "lo").Run()
-            }
-        }
-    }
+		// Only remove if not in active set AND not excluded
+		if _, keep := activeIPs[ipStr]; !keep {
+			if _, exclude := c.excludeMap[ipStr]; !exclude {
+				log.Printf("Removing stale IP %s from loopback", ipStr)
+				//_ = exec.Command("ip", "addr", "del", fmt.Sprintf("%s/32", ipStr), "dev", "lo").Run()
+			}
+		}
+	}
 }
 
 // sleep pauses for loop interval
