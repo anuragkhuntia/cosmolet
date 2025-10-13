@@ -39,6 +39,7 @@ type ServicesConfig struct {
 type BGPConfig struct {
 	Enabled bool `yaml:"enabled"`
 	ASN     int  `yaml:"asn,omitempty"`
+	ExcludedIPs []string `yaml:"excluded_ips,omitempty"` 
 }
 
 // LoggingConfig contains logging configuration
