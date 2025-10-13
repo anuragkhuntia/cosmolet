@@ -189,7 +189,7 @@ func (c *BGPServiceController) runControlLoop() {
 	}
 
 	// Remove stale loopback IPs (except excluded)
-	log.Printf("Remove stale loopback IPs (except excluded) %+v ...", activeIPs)
+	log.Printf("Remove stale loopback IPs (except excluded) %v ...", activeIPs)
 	//c.cleanupLoopbackIPs(activeIPs)
 
 	duration := time.Since(start)
