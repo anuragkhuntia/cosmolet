@@ -85,12 +85,23 @@ func (c *BGPServiceController) populateNodeIPs() error {
 	c.excludeMap["127.0.0.1"] = struct{}{}
 	c.excludeMap["::1"] = struct{}{}
 
+	// Append exclusions from config.yaml
+ 	if c.config != nil && len(c.config.BGP.ExcludedIPs) > 0 {
+     for _, ip := range c.config.BGP.ExcludedIPs {
+         ip = strings.TrimSpace(ip)
+         if ip != "" {
+             c.excludeMap[ip] = struct{}{}
+         }
+      }
+    }
+
 	// Log the protected IPs
 	var protected []string
 	for ip := range c.excludeMap {
 		protected = append(protected, ip)
 	}
 	log.Printf("Protected loopback IPs (won’t be deleted): %v", protected)
+	log.Printf("Additional exclusions from config.yaml: %v", c.config.BGP.ExcludedIPs)
 
 	return nil
 }
