@@ -70,30 +70,41 @@ func (c *BGPServiceController) populateNodeIPs() error {
 	}
 
 	c.excludeMap = make(map[string]struct{})
+
+	// Add node IPs for the current node
+	addedNodeIP := false
 	for _, node := range nodes.Items {
+		// Match node by NODE_NAME env (set via Downward API) or hostname fallback
 		if node.Name != c.nodeName {
 			continue
 		}
 		for _, addr := range node.Status.Addresses {
 			if addr.Type == v1.NodeInternalIP || addr.Type == v1.NodeExternalIP {
 				c.excludeMap[addr.Address] = struct{}{}
+				addedNodeIP = true
 			}
 		}
 		break
 	}
 
+	if !addedNodeIP && c.config.NodeIP != "" {
+		// Fallback: use configured NodeIP if node lookup failed
+		c.excludeMap[c.config.NodeIP] = struct{}{}
+	}
+
+	// Always protect localhost
 	c.excludeMap["127.0.0.1"] = struct{}{}
 	c.excludeMap["::1"] = struct{}{}
 
 	// Append exclusions from config.yaml
- 	if c.config != nil && len(c.config.BGP.ExcludedIPs) > 0 {
-     for _, ip := range c.config.BGP.ExcludedIPs {
-         ip = strings.TrimSpace(ip)
-         if ip != "" {
-             c.excludeMap[ip] = struct{}{}
-         }
-      }
-    }
+	if c.config != nil && len(c.config.BGP.ExcludedIPs) > 0 {
+		for _, ip := range c.config.BGP.ExcludedIPs {
+			ip = strings.TrimSpace(ip)
+			if ip != "" {
+				c.excludeMap[ip] = struct{}{}
+			}
+		}
+	}
 
 	// Log the protected IPs
 	var protected []string
@@ -101,7 +112,6 @@ func (c *BGPServiceController) populateNodeIPs() error {
 		protected = append(protected, ip)
 	}
 	log.Printf("Protected loopback IPs (won’t be deleted): %v", protected)
-	log.Printf("Additional exclusions from config.yaml: %v", c.config.BGP.ExcludedIPs)
 
 	return nil
 }
