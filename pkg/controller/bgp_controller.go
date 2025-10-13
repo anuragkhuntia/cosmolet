@@ -189,7 +189,7 @@ func (c *BGPServiceController) runControlLoop() {
 	}
 
 	// Remove stale loopback IPs (except excluded)
-	log.Printf("Remove stale loopback IPs (except excluded) %d ...", activeIPs)
+	log.Printf("Remove stale loopback IPs (except excluded) %+v ...", activeIPs)
 	//c.cleanupLoopbackIPs(activeIPs)
 
 	duration := time.Since(start)
@@ -322,14 +322,6 @@ func (c *BGPServiceController) checkHTTPHealth(url string) bool {
 	return true
 }
 
-// addIPToLoopback adds the IP to the loopback interface
-//func (c *BGPServiceController) addIPToLoopback(ip string) error {
-//	cmd := exec.Command("ip", "addr", "add", fmt.Sprintf("%s/32", ip), "dev", "lo")
-//	cmd.Run() // Ignore errors if already exists
-//	return nil
-//}
-// addIPToLoopback adds the IP to the loopback interface if not already present
-// addIPToLoopback adds the IP to the loopback interface if not already present
 func (c *BGPServiceController) addIPToLoopback(ip string) error {
 	// Check if IP is already present on lo
 	checkCmd := exec.Command("ip", "-o", "addr", "show", "dev", "lo")
@@ -382,7 +374,7 @@ func (c *BGPServiceController) cleanupLoopbackIPs(activeIPs map[string]struct{})
 		if _, keep := activeIPs[ipStr]; !keep {
 			if _, exclude := c.excludeMap[ipStr]; !exclude {
 				log.Printf("Removing stale IP %s from loopback", ipStr)
-				//_ = exec.Command("ip", "addr", "del", fmt.Sprintf("%s/32", ipStr), "dev", "lo").Run()
+				_ = exec.Command("ip", "addr", "del", fmt.Sprintf("%s/32", ipStr), "dev", "lo").Run()
 			}
 		}
 	}
