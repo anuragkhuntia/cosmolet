@@ -4,11 +4,12 @@ services:
 
 loop_interval_seconds: 3
 
-bgp_mode: "connected"  # options: "dynamic" or "connected"
+bgp_mode: "dynamic"  # options: "dynamic" or "connected"
 
 bgp:
   enabled: true
   asn: 65496
+  excluded_ips:
 
 logging:
   level: "info"
