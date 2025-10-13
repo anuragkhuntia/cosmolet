@@ -398,7 +398,7 @@ func (c *BGPServiceController) advertiseServiceViaBGP(ip string) error {
         c.config.BGP.ASN, ip,
     )
 
-    cmd := exec.Command("sudo", "vtysh", "-c", cmdStr)
+    cmd := exec.Command("vtysh", "-c", cmdStr)
     out, err := cmd.CombinedOutput()
     if err != nil {
         return fmt.Errorf("failed to advertise %s: %v (%s)", ip, err, string(out))
@@ -417,7 +417,7 @@ func (c *BGPServiceController) withdrawServiceFromBGP(ip string) error {
         c.config.BGP.ASN, ip,
     )
 
-    cmd := exec.Command("sudo", "vtysh", "-c", cmdStr)
+    cmd := exec.Command("vtysh", "-c", cmdStr)
     out, err := cmd.CombinedOutput()
     if err != nil {
         return fmt.Errorf("failed to withdraw %s: %v (%s)", ip, err, string(out))
